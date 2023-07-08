@@ -10,7 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 part 'main_state.dart';
 
 class MainCubit extends Cubit<MainState> {
-  MainCubit() : super(const MainState()) {
+  MainCubit() : super(const MainState(isLoading: true)) {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // get data
       final listProducts = getListProducts();
@@ -34,10 +34,11 @@ class MainCubit extends Cubit<MainState> {
         }
       }
 
-      emit(state.copyWith(
+      emitState(state.copyWith(
+        isLoading: false,
         listProducts: listProducts,
         listInCart: listShoesInCart,
-        totalPrice: totalPrice,
+        totalPrice: finalizeTotalPrice(totalPrice),
       ));
     });
   }
@@ -58,6 +59,16 @@ class MainCubit extends Cubit<MainState> {
     return listShoesInCart;
   }
 
+  double finalizeTotalPrice(double totalPrice) {
+    return num.parse(totalPrice.toStringAsFixed(2)).toDouble();
+  }
+
+  emitState(MainState newState) {
+    if (!isClosed) {
+      emit(newState);
+    }
+  }
+
   Future<void> saveDataInCart() async {
     if (prefs != null) {
       await Future.wait([
@@ -74,6 +85,7 @@ class MainCubit extends Cubit<MainState> {
   }
 
   late final SharedPreferences? prefs;
+  final removeItemDuration = 500;
 
   Future<void> onAddToCart(Shoes shoes) async {
     final listProducts = state.listProducts.map(
@@ -90,10 +102,11 @@ class MainCubit extends Cubit<MainState> {
     final listInCart = state.listInCart.map((e) => e.copyWith()).toList();
     listInCart.add(shoes.copyWith(quantity: 1));
 
-    emit(state.copyWith(
+    emitState(state.copyWith(
       listProducts: listProducts,
       listInCart: listInCart,
-      totalPrice: state.totalPrice + (shoes.price ?? 0),
+      totalPrice: finalizeTotalPrice(state.totalPrice + (shoes.price ?? 0)),
+      newItemAdded: true,
     ));
 
     await saveDataInCart();
@@ -101,7 +114,7 @@ class MainCubit extends Cubit<MainState> {
 
   Future<void> onChangeQuantity(int index, { bool isDecrease = false, }) async {
     if (state.listInCart[index].quantity == 1 && isDecrease) {
-      onRemoveItem(state.listInCart[index]);
+      onRemoveItem(index);
       return;
     }
 
@@ -114,15 +127,37 @@ class MainCubit extends Cubit<MainState> {
         ? state.totalPrice - (shoes.price ?? 0)
         : state.totalPrice + (shoes.price ?? 0);
 
-    emit(state.copyWith(
+    emitState(state.copyWith(
       listInCart: listInCart,
-      totalPrice: newPrice,
+      totalPrice: finalizeTotalPrice(newPrice),
     ));
 
     await saveDataInCart();
   }
 
-  Future<void> onRemoveItem(Shoes shoes) async {
+  Future<void> onRemoveItem(int index) async {
+    final shoes = state.listInCart[index];
+    final listInCart = state.listInCart.map(
+      (e) {
+        if (e.id == shoes.id) {
+          return e.copyWith(
+            quantity: 0,
+          );
+        }
+        return e.copyWith();
+      }
+    ).toList();
+    final newPrice = state.totalPrice - (shoes.price ?? 0) * shoes.quantity;
+
+    // emit to show change quantity from n to 0 and update new total price
+    emitState(state.copyWith(
+      listInCart: listInCart,
+      totalPrice: finalizeTotalPrice(newPrice),
+    ));
+
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    // actual remove item
     final listProducts = state.listProducts.map(
       (e) {
         if (e.id == shoes.id) {
@@ -134,19 +169,21 @@ class MainCubit extends Cubit<MainState> {
       }
     ).toList();
 
-    final listInCart = state.listInCart.where((e) => e.id != shoes.id).toList();
+    // final finalListInCart = state.listInCart.where((e) => e.id != shoes.id).toList();
 
-    await prefs?.setString(
-      StringConstants.yourCartKey,
-      json.encode(ShoesList(shoesList: listInCart).toJson()),
-    );
-
-    final newPrice = state.totalPrice - (shoes.price ?? 0) * shoes.quantity;
-
-    emit(state.copyWith(
+    emitState(state.copyWith(
       listProducts: listProducts,
-      listInCart: listInCart,
+      // listInCart: finalListInCart,
       totalPrice: newPrice,
+      removedItemIndex: index,
+      removedItem: shoes.copyWith(quantity: 0),
+    ));
+
+    // wait for animation
+    final finalListInCart = state.listInCart.where((e) => e.id != shoes.id).toList();
+    emitState(state.copyWith(
+      listInCart: finalListInCart,
+      removedItemIndex: -1,
     ));
 
     await saveDataInCart();

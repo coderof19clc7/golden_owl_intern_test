@@ -21,6 +21,7 @@ class ProductItem extends StatelessWidget {
         ProductImage(
           height: 380,
           padding: const EdgeInsets.only(right: 16),
+          rotateDeg: -7.5,
           url: shoes.image,
           color: shoes.color,
         ),
@@ -50,40 +51,58 @@ class ProductItem extends StatelessWidget {
               ),
             ),
 
-            if (shoes.isInCart)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
-                ),
-                decoration: const BoxDecoration(
-                  color: AppColors.yellow,
-                  shape: BoxShape.circle,
-                ),
-                child: Assets.images.check.image(
-                  width: 20,
-                  height: 20,
-                ),
-              )
-            else
-              ElevatedButton(
-                onPressed: onAddToCartTab,
-                style: ElevatedButton.styleFrom(
-                  foregroundColor: AppColors.white,
-                  backgroundColor: AppColors.yellow,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 20,
-                  ),
-                ),
-                child: Text(
-                  "Add to cart",
-                  style: AppFonts.boldTextStyle.copyWith(fontSize: 14),
-                ),
-              ),
+            buildAddToCartButton(),
           ],
         ),
       ],
+    );
+  }
+
+  Widget buildAddToCartButton() {
+    Widget widget = ElevatedButton(
+      onPressed: onAddToCartTab,
+      style: ElevatedButton.styleFrom(
+        foregroundColor: AppColors.white,
+        backgroundColor: AppColors.yellow,
+        padding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 20,
+        ),
+      ),
+      child: Text(
+        "Add to cart",
+        style: AppFonts.boldTextStyle.copyWith(fontSize: 14),
+      ),
+    );
+
+    if (shoes.isInCart) {
+      widget = Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 10,
+        ),
+        decoration: const BoxDecoration(
+          color: AppColors.yellow,
+          shape: BoxShape.circle,
+        ),
+        child: Assets.images.check.image(
+          width: 20,
+          height: 20,
+        ),
+      );
+    }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      transitionBuilder: (child, animation) {
+        return SizeTransition(
+          sizeFactor: animation,
+          axis: Axis.horizontal,
+          axisAlignment: 1.0,
+          child: child,
+        );
+      },
+      child: widget,
     );
   }
 }
