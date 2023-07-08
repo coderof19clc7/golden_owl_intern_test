@@ -10,4 +10,3 @@ To run the project (locally), please:
 
 # Missing part
 1. Haven't deploy yet.
-2. Don't have animation when adding and removing item to cart.
